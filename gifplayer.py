@@ -6,10 +6,11 @@ import time
 
 class GifSprite( pygame.sprite.Sprite ):
     
-    def __init__(self, pos=(0, 0), frames=None, frame_dir=None ):
+    def __init__(self, pos=(0, 0), rect=None, frames=None, frame_dir=None ):
         super( GifSprite, self ).__init__()
-        self._frame_source = FrameSource( frame_dir )
-        self.rect = pygame.Rect( pos, (0,0) )
+        self._frame_source = FrameSource( frame_dir, fit_rect=rect )
+        self.rect = rect
+        self._fit_rect = rect
         self._current_frame = None
         self.update()
 
@@ -17,6 +18,17 @@ class GifSprite( pygame.sprite.Sprite ):
         frame_next = self._frame_source.next_frame()
         if frame_next is not self._current_frame:
             self.image = pygame.image.load( frame_next.image_path ) 
+            
+            fw, fh = self._fit_rect.width, self._fit_rect.height
+            iw, ih = self.image.get_width(), self.image.get_height()
+            if iw > ih:
+                # landscape image
+                fh = (ih/iw) * fw
+            else:
+                # portrait image
+                fw = (iw/ih * fh)
+            self.image = pygame.transform.scale( self.image, (fw,fh) )
+
             c = self.rect.center
             self.rect.width, self.rect.height = self.image.get_size()
             self.rect.center = c
@@ -35,27 +47,30 @@ class Frame( object ):
 
 class FrameSource( object ):
 
-    def __init__( self, pth_gif=None ):
+    def __init__( self, pth_gif=None, fit_rect=None ):
+        self._fit_rect = fit_rect
         if pth_gif is not None:
             self.load( pth_gif )
 
     def load( self, pth_gif ):
-        timings = self.parse_timings( pth_gif )
-        frame_dir = self.extract_frames( pth_gif )
-        frame_list = os.listdir( frame_dir )
+        # get a list of frames from disk, make sure they're in order
+        self._frame_dir = self.extract_frames( pth_gif )
+        frame_list = os.listdir( self._frame_dir )
         frame_list.sort()
-        frames = []
+        # parse frame info, get a list of Frame objects
+        frames = self.parse_info( pth_gif )
+        # insert frame filenames into Frame list
         idx = 0
         for fn_gif in frame_list:
-            fn_gif = os.path.join( frame_dir, fn_gif )
-            frame = Frame( idx, timings[idx], fn_gif )
-            frames.append( frame )
+            frame = frames[idx]
+            frame.image_path = os.path.join( self._frame_dir, fn_gif )
+            idx +=1 
         self._frames = frames
         self._last_ts = time.time()
         self._current_frame = frames[0]
         self._idx_frame = 0
 
-    def parse_timings( self, pth_gif ):
+    def parse_info( self, pth_gif ):
         ''' 
         Use gifsicle to extract frame timings from a gif 
         Args: 
@@ -66,7 +81,7 @@ class FrameSource( object ):
         args = [ "gifsicle", "--info", pth_gif ]
         buf = subprocess.check_output( args )
         blocks = buf.split("+")[1:]
-        timings = []
+        frames = []
         re_delay = re.compile( r'[\w\W]*delay ([0-9.]*)' )
         for block in blocks:
             m = re_delay.match(block)
@@ -93,7 +108,9 @@ class FrameSource( object ):
         gif_name = os.path.basename( pth_gif )
         temp_path = tempfile.mkdtemp()
         output = os.path.join( temp_path, gif_name )
-        args = [ "gifsicle", "--explode", pth_gif, "--output", output ]
+        sz = "%dx%d" % ( self._fit_rect.width, self._fit_rect.height )
+        args = [ "gifsicle", "--resize-fit", sz, "--explode", pth_gif, "--output", output ]
+        print args
         subprocess.call( args )
         return temp_path
 
@@ -132,14 +149,13 @@ def main():
     screen = init_display( (640,480) )
 
     gif_path = sys.argv[1]
-    print gif_path
 
     clock = pygame.time.Clock()
 
-    gif_sprite = GifSprite( frame_dir=gif_path )
+    sr = screen.get_rect()
+    gif_sprite = GifSprite( frame_dir=gif_path, rect=sr)
     sprites = pygame.sprite.Group( gif_sprite )
     
-    gif_sprite.rect.center = screen.get_rect().center 
 
     while True:
         event = pygame.event.poll()
@@ -147,6 +163,7 @@ def main():
             gif_sprite.kill()
             pygame.display.quit()
             sys.exit() 
+        
         clock.tick(60)
         sprites.update()
         sprites.draw( screen )
