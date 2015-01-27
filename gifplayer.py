@@ -17,6 +17,7 @@ class GifSprite( pygame.sprite.Sprite ):
     def update(self, *args):
         frame_next = self._frame_source.next_frame()
         if frame_next is not self._current_frame:
+            print frame_next.image_path
             self.image = pygame.image.load( frame_next.image_path ) 
             
             fw, fh = self._fit_rect.width, self._fit_rect.height
@@ -40,10 +41,11 @@ class GifSprite( pygame.sprite.Sprite ):
 
 
 class Frame( object ):
-    def __init__( self, index, delay, image_path ):
+    def __init__( self, index=0, delay=0, image_path=None, offset=(0,0) ):
         self.image_path = image_path
         self.delay = delay
         self.index = index
+        self.offset = offset
 
 class FrameSource( object ):
 
@@ -83,11 +85,24 @@ class FrameSource( object ):
         blocks = buf.split("+")[1:]
         frames = []
         re_delay = re.compile( r'[\w\W]*delay ([0-9.]*)' )
+        re_offset = re.compile( r'[\w\W]*at ([0-9,]*)' )
+        idx = 0
         for block in blocks:
+            d = 0
+            offs = (0,0)
             m = re_delay.match(block)
             if m is not None:
-                timings.append( float( m.group(1) ))
-        return timings
+                d = float( m.group(1) )
+            m = re_offset.match(block)
+            if m is not None:
+                offs = m.group(1).split(",")
+                offs = tuple([ int(i) for i in offs ])
+            print offs
+            print d
+            frame = Frame( idx, d, offset=offs )
+            frames.append( frame )
+            idx += 1
+        return frames
 
     def next_frame( self ):
         ts = time.time()
