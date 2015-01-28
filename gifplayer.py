@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import pygame
 import sys, os, subprocess, shutil
 import tempfile
@@ -6,33 +8,50 @@ import time
 
 class GifSprite( pygame.sprite.Sprite ):
     
-    def __init__(self, pos=(0, 0), rect=None, frames=None, frame_dir=None ):
+    def __init__(self, pos=(0, 0), frames=None, frame_dir=None, fit_rect=None ):
         super( GifSprite, self ).__init__()
-        self._frame_source = FrameSource( frame_dir, fit_rect=rect )
-        self.rect = rect
-        self._fit_rect = rect
+        self._fit_rect = fit_rect
         self._current_frame = None
+        self._glitch = False
+        self.load( frame_dir=frame_dir, fit_rect=fit_rect )
         self.update()
+    
+    def load( self, frame_dir=None, fit_rect=None ):
+        self._frame_source = FrameSource( frame_dir, fit_rect=fit_rect )
+
+        fw, fh = self._fit_rect.width, self._fit_rect.height
+        lw, lh = self._frame_source.logical_size
+        if lw > lh:
+            # landscape image
+            self._scale_factor = float(fw)/float(lw)           
+        else:
+            # portrait image
+            self._scale_factor = float(fh)/float(lh)
+
+        self._logical_size = tuple([i*self._scale_factor for i in self._frame_source.logical_size])
+        print "logical size frame: %s\nlogical size self:%s" % ( self._frame_source.logical_size, self._logical_size  )
+
 
     def update(self, *args):
         frame_next = self._frame_source.next_frame()
         if frame_next is not self._current_frame:
-            print frame_next.image_path
             self.image = pygame.image.load( frame_next.image_path ) 
-            
-            fw, fh = self._fit_rect.width, self._fit_rect.height
-            iw, ih = self.image.get_width(), self.image.get_height()
-            if iw > ih:
-                # landscape image
-                fh = (ih/iw) * fw
-            else:
-                # portrait image
-                fw = (iw/ih * fh)
-            self.image = pygame.transform.scale( self.image, (fw,fh) )
 
-            c = self.rect.center
-            self.rect.width, self.rect.height = self.image.get_size()
-            self.rect.center = c
+            c = self._fit_rect.center
+
+            pos = ( c[0] - (self._logical_size[0]/2),
+                    c[1] - (self._logical_size[1]/2) )
+            
+            if not self._glitch:
+                pos = ( pos[0] + (frame_next.offset[0] * self._scale_factor), 
+                        pos[1] + (frame_next.offset[1] * self._scale_factor) ) 
+
+            iw, ih = self.image.get_size()
+            sz = ( int(iw*self._scale_factor), int(ih*self._scale_factor) )
+            self.image = pygame.transform.scale( self.image, sz )
+
+            self.rect = pygame.Rect( pos, self.image.get_size() )
+        
             self._current_frame = frame_next
 
     def kill( self ):
@@ -51,16 +70,20 @@ class FrameSource( object ):
 
     def __init__( self, pth_gif=None, fit_rect=None ):
         self._fit_rect = fit_rect
+        self.logical_size = (0,0)
         if pth_gif is not None:
             self.load( pth_gif )
 
     def load( self, pth_gif ):
+
         # get a list of frames from disk, make sure they're in order
         self._frame_dir = self.extract_frames( pth_gif )
         frame_list = os.listdir( self._frame_dir )
         frame_list.sort()
+
         # parse frame info, get a list of Frame objects
         frames = self.parse_info( pth_gif )
+        
         # insert frame filenames into Frame list
         idx = 0
         for fn_gif in frame_list:
@@ -82,6 +105,14 @@ class FrameSource( object ):
         '''
         args = [ "gifsicle", "--info", pth_gif ]
         buf = subprocess.check_output( args )
+       
+        # parse logical size
+        m = re.search( r'logical screen ([0-9]*)x([0-9]*)', buf )
+        if m is not None:
+            self.logical_size = ( int(m.group(1)), int(m.group(2)) )
+            print self.logical_size
+
+        # parse per-frame info
         blocks = buf.split("+")[1:]
         frames = []
         re_delay = re.compile( r'[\w\W]*delay ([0-9.]*)' )
@@ -97,8 +128,6 @@ class FrameSource( object ):
             if m is not None:
                 offs = m.group(1).split(",")
                 offs = tuple([ int(i) for i in offs ])
-            print offs
-            print d
             frame = Frame( idx, d, offset=offs )
             frames.append( frame )
             idx += 1
@@ -124,7 +153,7 @@ class FrameSource( object ):
         temp_path = tempfile.mkdtemp()
         output = os.path.join( temp_path, gif_name )
         sz = "%dx%d" % ( self._fit_rect.width, self._fit_rect.height )
-        args = [ "gifsicle", "--resize-fit", sz, "--explode", pth_gif, "--output", output ]
+        args = [ "gifsicle", "--explode", pth_gif, "--output", output ]
         print args
         subprocess.call( args )
         return temp_path
@@ -168,7 +197,7 @@ def main():
     clock = pygame.time.Clock()
 
     sr = screen.get_rect()
-    gif_sprite = GifSprite( frame_dir=gif_path, rect=sr)
+    gif_sprite = GifSprite( frame_dir=gif_path, fit_rect=sr )
     sprites = pygame.sprite.Group( gif_sprite )
     
 
