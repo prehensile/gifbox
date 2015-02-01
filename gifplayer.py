@@ -5,6 +5,7 @@ import sys, os, subprocess, shutil
 import tempfile
 import re
 import time
+import threading
 
 class GifSprite( pygame.sprite.Sprite ):
     
@@ -158,60 +159,92 @@ class FrameSource( object ):
         subprocess.call( args )
         return temp_path
 
-def init_display( sz=None ):
-    # Start with fbcon since directfb hangs with composite output
-    drivers = ['fbcon', 'directfb', 'svgalib']
-    found = False
-    for driver in drivers:
-        # Make sure that SDL_VIDEODRIVER is set
-        if not os.getenv('SDL_VIDEODRIVER'):
-            os.putenv('SDL_VIDEODRIVER', driver)
-            try:
-                pygame.display.init()
-            except pygame.error:
-                print 'Driver: {0} failed.'.format(driver)
-                continue
-            found = True
-            break
 
-    if not found:
-        raise Exception('No suitable video driver found!')
+class GifPlayer( threading.Thread ):
     
-    flags = 0
-    if found:
-        d = pygame.display.Info()
-        #flags = pygame.HWSURFACE | pygame.FULLSCREEN | pygame.DOUBLEBUF
-        #sz = (d.current_w, d.current_h)
-    else:
-        pygame.display.init()
-    screen = pygame.display.set_mode( sz, flags )
-    return screen
-
-def main():
-    pygame.init()
-    screen = None
-    screen = init_display( (640,480) )
-
-    gif_path = sys.argv[1]
-
-    clock = pygame.time.Clock()
-
-    sr = screen.get_rect()
-    gif_sprite = GifSprite( frame_dir=gif_path, fit_rect=sr )
-    sprites = pygame.sprite.Group( gif_sprite )
+    def __init__(self, arg):
+        super(GifPlayer, self).__init__()
+        self.arg = arg
+        self.init_pygame()
     
+    def init_pygame( self ):        
+        pygame.init()
+        self._screen = self.init_display( (640,480) )
+        self_clock = None
 
-    while True:
-        event = pygame.event.poll()
-        if (event is not None) and (event.type == pygame.QUIT):
-            gif_sprite.kill()
-            pygame.display.quit()
-            sys.exit() 
+    def init_display( self, sz=None ):
+        # Start with fbcon since directfb hangs with composite output
+        drivers = ['fbcon', 'directfb', 'svgalib']
+        found = False
+        for driver in drivers:
+            # Make sure that SDL_VIDEODRIVER is set
+            if not os.getenv('SDL_VIDEODRIVER'):
+                os.putenv('SDL_VIDEODRIVER', driver)
+                try:
+                    pygame.display.init()
+                except pygame.error:
+                    print 'Driver: {0} failed.'.format(driver)
+                    continue
+                found = True
+                break
+
+        if not found:
+            raise Exception('No suitable video driver found!')
         
-        clock.tick(60)
-        sprites.update()
-        sprites.draw( screen )
-        pygame.display.flip()
+        flags = 0
+        if found:
+            d = pygame.display.Info()
+            #flags = pygame.HWSURFACE | pygame.FULLSCREEN | pygame.DOUBLEBUF
+            #sz = (d.current_w, d.current_h)
+        else:
+            pygame.display.init()
+        screen = pygame.display.set_mode( sz, flags )
+        return screen
+
+    def play( self, gif_path ):
+        self._gif_path = gif_path
+        self._stop = threading.Event()
+        self.start()
+
+    def run( self ):
+
+        if not self._clock:
+            self._clock = pygame.time.Clock()
+
+        sr = self._screen.get_rect()
+        gif_sprite = GifSprite( frame_dir=self._gif_path, fit_rect=sr )
+        sprites = pygame.sprite.Group( gif_sprite )
+
+        while not self._stop.isSet():
+            event = pygame.event.poll()
+            if (event is not None) and (event.type == pygame.QUIT):
+                self._stop.set()
+            self._clock.tick(60)
+            sprites.update()
+            sprites.draw( self._screen )
+            pygame.display.flip()
+
+        # exit main runloop
+        gif_sprite.kill()
+
+    def stop( self ):
+        self._stop.set()
+
+    def shutdown( self ):
+        self.stop()
+        pygame.display.quit()
 
 if __name__ == '__main__':
-    main()
+    gifplayer = GifPlayer()
+    gifplayer.init()
+
+    gif_path = sys.argv[1]
+    gifplayer.play( gif_path )
+
+    try:
+        while True:
+            pass
+    except:
+        pass
+
+    gifplayer.shutdown()

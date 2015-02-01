@@ -1,0 +1,14 @@
+<!doctype html>
+<title>Dropbox Example</title>
+<link rel=stylesheet type=text/css href="/static/css/style.css">
+<div class=page>
+  <h1>Dropbox Example</h1>
+  <div class=metanav>
+  {% if not user %}
+    <a href="/login">log in</a>
+  {% else %}
+    <a href="/logout">log out</a>
+  {% endif %}
+  </div>
+  {% block body %}{% endblock %}
+</div>
