@@ -8,7 +8,7 @@ import morris
 import confighandler
 import platform
 
-USE_GIFPLAYER = (platform.system().lower != "darwin")
+USE_GIFPLAYER = (platform.system().lower() != "darwin")
 if USE_GIFPLAYER:
     import gifplayer
 else:

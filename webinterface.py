@@ -4,9 +4,9 @@ import os, sys
 import cherrypy
 import jinja2
 from dropbox.client import DropboxClient, DropboxOAuth2Flow
-from morris import signal
+from morris import Signal
 
-@signal
+@Signal.define
 def token_saved( pth_token ):
     pass
 
