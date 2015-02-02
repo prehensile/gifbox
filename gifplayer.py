@@ -202,6 +202,10 @@ class GifPlayer( threading.Thread ):
         return screen
 
     def play( self, gif_path ):
+        
+        self.stop()
+        self.join()
+
         self._gif_path = gif_path
         self._stop = threading.Event()
         self.start()

@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 
-import sys, os, subprocess
+import sys, os
 import dropboxconnector
 import webinterface
 import time
 import morris
+import confighandler
+import platform
 
-USE_GIFPLAYER = False
+USE_GIFPLAYER = (platform.system().lower != "darwin")
 if USE_GIFPLAYER:
     import gifplayer
+else:
+    import gifplayerosx
 
 def pth_token( pth_root ):
     return os.path.join( pth_root, "db_token" )
@@ -25,6 +29,12 @@ def load_token( pth_root ):
 def abort( message ):
     sys.stderr.write( "No Dropbox token found. Set one in the web interface before running gifbox." )
     exit(1)
+
+##
+# MAIN FLOW
+# 
+
+confighandler.load_config()
 
 # gifbox's working dir
 pth_root = os.path.expanduser( "~/.gifbox" )
@@ -62,23 +72,19 @@ try:
                 print "init dropbox..."
                 dropbox = dropboxconnector.DropboxConnector( pth_root, "/gifplayer/media", access_token=db_token )
 
-            if player is None and USE_GIFPLAYER:
-                print "init player..."
-                player = gifplayer.GifPlayer()
-                player.init()
+            if player is None:
+                print "init player..."  
+                if USE_GIFPLAYER:
+                    player = gifplayer.GifPlayer()
+                    player.init()
+                else:
+                    player = gifplayerosx.GifPlayerOSX()
 
             print "get next gif..."
             pth_gif = dropbox.get_nextfile()
             print pth_gif
 
-            if USE_GIFPLAYER:
-                player.play( pth_gif )
-            else:
-                # use quicklook on OSX
-                if player is not None:
-                    player.kill()
-                args = [ "qlmanage", "-p", pth_gif ]
-                player = subprocess.Popen( args )
+            player.play( pth_gif )
             
             time.sleep( DISPLAY_TIME )        
             os.remove( pth_gif )
@@ -87,10 +93,7 @@ except:
 
 # exit main runloop
 if player is not None:
-    if USE_GIFPLAYER:
-        player.shutdown()
-    else:
-        player.kill()
+    player.shutdown()
 
 if dropbox is not None:
     dropbox.shutdown()
