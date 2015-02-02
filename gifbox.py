@@ -54,7 +54,7 @@ if not HAS_TOKEN:
     def on_token():
         global HAS_TOKEN
         HAS_TOKEN = True
-    webinterface.tokenoken_saved.connect( on_token )
+    webinterface.token_saved.connect( on_token )
 interface.start()
 
 DISPLAY_TIME = 10.0
