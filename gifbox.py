@@ -14,16 +14,25 @@ if USE_GIFPLAYER:
 else:
     import gifplayerosx
 
-def pth_token( pth_root ):
-    return os.path.join( pth_root, "db_token" )
+def pth_root():
+    root = os.path.expanduser( "~/.gifbox" )
+    if not os.path.exists( root ):
+        os.mkdir( root )
+    return root
 
-def load_token( pth_root ):
+def pth_token():
+    return os.path.join( pth_root(), "db_token" )
+
+def load_token( fn_token=None ):
     token = None
-    fn_token = pth_token( pth_root )
+    if fn_token is None:
+        fn_token = pth_token()
     if os.path.exists( fn_token ):
         fh = open( fn_token )
         token = fh.read()
         fh.close()
+        if len(token) < 1:
+            token = None
     return token
 
 def abort( message ):
@@ -37,23 +46,23 @@ def abort( message ):
 confighandler.load_config()
 
 # gifbox's working dir
-pth_root = os.path.expanduser( "~/.gifbox" )
-if not os.path.exists( pth_root ):
-    os.mkdir( pth_root )
 
 # load dropbox token
-db_token = load_token( pth_root )
+db_token = load_token()
+print "db_token: %s" % db_token
 HAS_TOKEN = db_token is not None
 
 # main runloop
 dropbox = None
 player = None
 
-interface = webinterface.WebInterface( pth_token(pth_root) )
+interface = webinterface.WebInterface( pth_token() )
 if not HAS_TOKEN:
+    print "no token..."
     def on_token():
         global HAS_TOKEN
         HAS_TOKEN = True
+        print "token signal"
     webinterface.token_saved.connect( on_token )
 interface.start()
 
@@ -63,14 +72,13 @@ try:
 
         if not HAS_TOKEN:
             # wait for token to be saved
-            print "no token..."
             pass
 
         else:
             # token is present
             if dropbox is None:
                 print "init dropbox..."
-                dropbox = dropboxconnector.DropboxConnector( pth_root, "/gifplayer/media", access_token=db_token )
+                dropbox = dropboxconnector.DropboxConnector( pth_root(), "/gifplayer/media", access_token=db_token )
 
             if player is None:
                 print "init player..."  
@@ -88,7 +96,7 @@ try:
             
             time.sleep( DISPLAY_TIME )        
             os.remove( pth_gif )
-except:
+except KeyboardInterrupt:
     pass
 
 # exit main runloop
