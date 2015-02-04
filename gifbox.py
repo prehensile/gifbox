@@ -8,6 +8,7 @@ import morris
 import confighandler
 import platform
 
+DB_TOKEN = None
 USE_GIFPLAYER = (platform.system().lower() != "darwin")
 if USE_GIFPLAYER:
     import gifplayer
@@ -24,6 +25,7 @@ def pth_token():
     return os.path.join( pth_root(), "db_token" )
 
 def load_token( fn_token=None ):
+    global DB_TOKEN
     token = None
     if fn_token is None:
         fn_token = pth_token()
@@ -33,6 +35,7 @@ def load_token( fn_token=None ):
         fh.close()
         if len(token) < 1:
             token = None
+    DB_TOKEN = token
     return token
 
 def abort( message ):
@@ -48,20 +51,17 @@ confighandler.load_config()
 # gifbox's working dir
 
 # load dropbox token
-db_token = load_token()
-print "db_token: %s" % db_token
-HAS_TOKEN = db_token is not None
+load_token()
 
 # main runloop
 dropbox = None
 player = None
 
 interface = webinterface.WebInterface( pth_token() )
-if not HAS_TOKEN:
+if not DB_TOKEN:
     print "no token..."
-    def on_token():
-        global HAS_TOKEN
-        HAS_TOKEN = True
+    def on_token( pth_token=None ):
+        self.load_token( pth_token )
         print "token signal"
     webinterface.token_saved.connect( on_token )
 interface.start()
@@ -70,7 +70,7 @@ DISPLAY_TIME = 10.0
 try:
     while True:
 
-        if not HAS_TOKEN:
+        if DB_TOKEN is None:
             # wait for token to be saved
             pass
 
@@ -78,7 +78,7 @@ try:
             # token is present
             if dropbox is None:
                 print "init dropbox..."
-                dropbox = dropboxconnector.DropboxConnector( pth_root(), "/gifplayer/media", access_token=db_token )
+                dropbox = dropboxconnector.DropboxConnector( pth_root(), "/gifplayer/media", access_token=DB_TOKEN )
 
             if player is None:
                 print "init player..."  
