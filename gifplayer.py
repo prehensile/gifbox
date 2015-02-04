@@ -162,11 +162,15 @@ class FrameSource( object ):
 
 class GifPlayer( threading.Thread ):
     
-    def __init__(self, arg):
+    def __init__(self):
         super(GifPlayer, self).__init__()
-        self.arg = arg
+        self._runthread = None
+        self._runplayer = None
+        self._clock = None
+
+    def init( self ):
         self.init_pygame()
-    
+
     def init_pygame( self ):        
         pygame.init()
         self._screen = self.init_display( (640,480) )
@@ -203,40 +207,55 @@ class GifPlayer( threading.Thread ):
 
     def play( self, gif_path ):
         
-        self.stop()
-        self.join()
-
         self._gif_path = gif_path
-        self._stop = threading.Event()
-        self.start()
+       
+        if self._runplayer is None:
+            self._runplayer = threading.Event()
+            self._runplayer.set()
+        else:
+            self.stop()
 
-    def run( self ):
-
-        if not self._clock:
-            self._clock = pygame.time.Clock()
-
-        sr = self._screen.get_rect()
-        gif_sprite = GifSprite( frame_dir=self._gif_path, fit_rect=sr )
-        sprites = pygame.sprite.Group( gif_sprite )
-
-        while not self._stop.isSet():
-            event = pygame.event.poll()
-            if (event is not None) and (event.type == pygame.QUIT):
-                self._stop.set()
-            self._clock.tick(60)
-            sprites.update()
-            sprites.draw( self._screen )
-            pygame.display.flip()
-
-        # exit main runloop
-        gif_sprite.kill()
+        if self._runthread is None:
+            self._runthread = threading.Event()
+            self._runthread.set()
+            self.start()
 
     def stop( self ):
-        self._stop.set()
+        self._runplayer.clear()
 
     def shutdown( self ):
+        self._runthread.clear()
         self.stop()
+        self.join()
         pygame.display.quit()
+    
+    def run( self ):
+        
+        while self._runthread.isSet():
+
+            event = pygame.event.poll()
+            if (event is not None) and (event.type == pygame.QUIT):
+                self.shutdown()
+            
+            if not self._clock:
+                self._clock = pygame.time.Clock()
+
+            sr = self._screen.get_rect()
+            gif_sprite = GifSprite( frame_dir=self._gif_path, fit_rect=sr )
+            sprites = pygame.sprite.Group( gif_sprite )
+            self._runplayer.set()
+
+            while self._runplayer.isSet():
+                self._clock.tick(60)
+                sprites.update()
+                sprites.draw( self._screen )
+                pygame.display.flip()
+
+            # exit main runloop
+            gif_sprite.kill()
+            # clear screen between gifs
+            self._screen.fill((0,0,0))
+            print "end GifPlayer runloop"
 
 if __name__ == '__main__':
     gifplayer = GifPlayer()
