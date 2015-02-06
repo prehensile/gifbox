@@ -4,30 +4,16 @@ import os, sys
 import cherrypy
 import jinja2
 from dropbox.client import DropboxClient, DropboxOAuth2Flow
-from morris import Signal
-
-@Signal.define
-def token_saved( pth_token ):
-    pass
+import confighandler
 
 class InterfaceViews( object ):
 
-    def __init__( self, pth_token ):
+    def __init__( self ):
         self._dropbox_app_key = os.environ.get( "DROPBOX_KEY" )
         self._dropbox_app_secret = os.environ.get( "DROPBOX_SECRET" )
         self._jinja_env = jinja2.Environment( 
             loader=jinja2.FileSystemLoader('public')
         )
-        self._pth_token = pth_token
-
-    def save_token( self, token ):
-        pth_dir = os.path.dirname( self._pth_token )
-        if not os.path.exists( pth_dir ):
-            os.makedirs( pth_dir )
-        fh = open( self._pth_token, "w" )
-        fh.write( token )
-        fh.close()
-        token_saved( self._pth_token )
 
     def render_template( self, template, **kwargs ):
         tmpl = self._jinja_env.get_template( template )
@@ -85,7 +71,7 @@ class InterfaceViews( object ):
             raise cherrypy.HTTPError( 403 )
         #data = [access_token, username]
         # TODO: save token
-        self.save_token( access_token )
+        confighandler.save_token( access_token )
         raise cherrypy.HTTPRedirect( cherrypy.url('home') )
 
     @cherrypy.expose
@@ -101,10 +87,7 @@ class InterfaceViews( object ):
                                            cherrypy.session, 'dropbox-auth-csrf-token' )
 
 class WebInterface( object ):
-    
-    def __init__( self, pth_token ):
-        self._pth_token = pth_token
-        
+     
     def start( self ):
         pth_root = os.path.abspath( os.getcwd() )
         conf = {
@@ -121,7 +104,7 @@ class WebInterface( object ):
         cherrypy.engine.signal_handler.subscribe()
         cherrypy.config.update( conf )
         
-        views = InterfaceViews( self._pth_token )
+        views = InterfaceViews()
         cherrypy.tree.mount( views, "", config=conf )
         cherrypy.engine.start()
 
@@ -129,9 +112,7 @@ class WebInterface( object ):
         cherrypy.engine.exit()
 
 if __name__ == '__main__':
-    pth_token = sys.argv[1]
-    print pth_token
-    interface = WebInterface( pth_token )
+    interface = WebInterface()
     interface.start()
 
     try:
