@@ -173,8 +173,14 @@ class GifPlayer( threading.Thread ):
 
     def init_pygame( self ):        
         pygame.init()
-        self._screen = self.init_display( (640,480) )
-        self_clock = None
+        #self._screen = self.init_display( (640,480) )
+        self._screen = self.init_simple()
+
+    def init_simple( self ):
+        d = pygame.display.Info()
+        flags = pygame.HWSURFACE | pygame.FULLSCREEN | pygame.DOUBLEBUF
+        pygame.display.init()
+        pygame.display.set_mode( (d.current_w, d.current_h), flags )
 
     def init_display( self, sz=None ):
         # Start with fbcon since directfb hangs with composite output
@@ -198,8 +204,8 @@ class GifPlayer( threading.Thread ):
         flags = 0
         if found:
             d = pygame.display.Info()
-            #flags = pygame.HWSURFACE | pygame.FULLSCREEN | pygame.DOUBLEBUF
-            #sz = (d.current_w, d.current_h)
+            flags = pygame.HWSURFACE | pygame.FULLSCREEN | pygame.DOUBLEBUF
+            sz = (d.current_w, d.current_h)
         else:
             pygame.display.init()
         screen = pygame.display.set_mode( sz, flags )
