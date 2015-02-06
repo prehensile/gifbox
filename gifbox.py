@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
-import sys, os
+import os, sys
 import dropboxconnector
 import webinterface
 import time
-import morris
 import confighandler
+import platformutils
 import platform
+import logging
 
 DB_TOKEN = None
 def load_token( pth_token=None ):
@@ -19,17 +20,19 @@ if USE_GIFPLAYER:
 else:
     import gifplayerosx
 
+
 def abort( message ):
     sys.stderr.write( message )
     exit(1)
+
 
 ##
 # MAIN FLOW
 # 
 
-confighandler.load_config()
+platformutils.init_logging( pth_logfile=confighandler.path_for_resource("log") )
 
-# gifbox's working dir
+confighandler.load_config()
 
 # load dropbox token
 load_token()
@@ -40,10 +43,10 @@ player = None
 interface = webinterface.WebInterface()
 
 if not DB_TOKEN:
-    print "no token..."
+    logging.info( "no token..." )
     def on_token( pth_token=None ):
         load_token( pth_token )
-        print "token signal"
+        logging.info( "token signal" )
     confighandler.token_saved.connect( on_token )
 interface.start()
 
@@ -58,20 +61,20 @@ try:
         else:
             # token is present
             if dropbox is None:
-                print "init dropbox..."
+                logging.info( "init dropbox..." )
                 dropbox = dropboxconnector.DropboxConnector( confighandler.pth_root(), "/gifplayer/media", access_token=DB_TOKEN )
 
             if player is None:
-                print "init player..."  
+                logging.info( "init player..." )
                 if USE_GIFPLAYER:
                     player = gifplayer.GifPlayer()
                     player.init()
                 else:
                     player = gifplayerosx.GifPlayerOSX()
 
-            print "get next gif..."
+            logging.info( "get next gif..." )
             pth_gif = dropbox.get_nextfile()
-            print pth_gif
+            logging.info( "-> downloaded %s" % pth_gif )
 
             player.play( pth_gif )
             
@@ -82,9 +85,11 @@ except KeyboardInterrupt:
 
 # exit main runloop
 if player is not None:
+    logging.info( "shutdown player")
     player.shutdown()
 
 if dropbox is not None:
+    logging.info( "shutdown dropbox")
     dropbox.shutdown()
 
 interface.shutdown()
