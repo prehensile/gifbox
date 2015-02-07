@@ -23,7 +23,7 @@ if USE_GIFPLAYER:
 else:
     import gifplayerosx
 
-USE_RAMFS = False 
+USE_RAMFS = not IS_DARWIN 
 
 def abort( message ):
     sys.stderr.write( message )
