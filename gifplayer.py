@@ -6,6 +6,7 @@ import tempfile
 import re
 import time
 import threading
+import logging
 
 class GifSprite( pygame.sprite.Sprite ):
     
@@ -57,6 +58,7 @@ class GifSprite( pygame.sprite.Sprite ):
 
     def kill( self ):
         self._frame_source.destroy()
+        logging.debug( "kill sprite" )
         super( GifSprite, self ).kill()
 
 
@@ -177,10 +179,14 @@ class GifPlayer( threading.Thread ):
         self._screen = self.init_simple()
 
     def init_simple( self ):
-        d = pygame.display.Info()
-        flags = pygame.HWSURFACE | pygame.FULLSCREEN | pygame.DOUBLEBUF
+        # os.putenv('SDL_VIDEODRIVER', "svgalib")
+	d = pygame.display.Info()
+	logging.info( d )
+        flags = pygame.HWSURFACE | pygame.FULLSCREEN
         pygame.display.init()
-        pygame.display.set_mode( (d.current_w, d.current_h), flags )
+        screen = pygame.display.set_mode( (d.current_w, d.current_h), flags )
+	print "screen: %s:" % screen
+	return screen
 
     def init_display( self, sz=None ):
         # Start with fbcon since directfb hangs with composite output
@@ -234,34 +240,47 @@ class GifPlayer( threading.Thread ):
         self.stop()
         self.join()
         pygame.display.quit()
-    
+   
+ 
     def run( self ):
         
+        black = (0,0,0)
+	def clear_cb( surf, rect ):
+            surf.fill( black, rect)
+	
+        gif_sprite = None
+	sprites = pygame.sprite.Group()
+        clock = pygame.time.Clock()
+        sr = self._screen.get_rect()
         while self._runthread.isSet():
 
             event = pygame.event.poll()
             if (event is not None) and (event.type == pygame.QUIT):
                 self.shutdown()
             
-            if not self._clock:
-                self._clock = pygame.time.Clock()
+	    gif_sprite = GifSprite( frame_dir=self._gif_path, fit_rect=sr )
+            gif_sprite.add( sprites )            
 
-            sr = self._screen.get_rect()
-            gif_sprite = GifSprite( frame_dir=self._gif_path, fit_rect=sr )
-            sprites = pygame.sprite.Group( gif_sprite )
-            self._runplayer.set()
+	    self._runplayer.set()
 
+	    sprites.clear( self._screen, clear_cb )
+            self._screen.fill( black )
+            pygame.display.flip()
+            
             while self._runplayer.isSet():
-                self._clock.tick(60)
+                clock.tick(30)
                 sprites.update()
                 sprites.draw( self._screen )
                 pygame.display.flip()
+	    
+            logging.info( "exit play loop" )
 
-            # exit main runloop
+            sprites.empty()
             gif_sprite.kill()
-            # clear screen between gifs
-            self._screen.fill((0,0,0))
-            print "end GifPlayer runloop"
+            gif_sprite = None
+            #pygame.display.flip()
+
+	print "end GifPlayer runloop"
 
 if __name__ == '__main__':
     gifplayer = GifPlayer()
