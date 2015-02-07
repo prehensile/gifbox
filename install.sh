@@ -2,18 +2,13 @@
 mkdir ~/.gifbox
 
 # install dependencies
-sudo apt-get install gifsicle fbi python-pip -y
-
-# create & provision a virtualenv
-sudo pip install virtualenv
-virtualenv .venv
-source .venv/bin/activate
+apt-get install gifsicle fbi python-pip -y
 pip install -r requirements.txt
 
 # install splash screen 
-sudo ln -s init.d/asplash.sh /etc/init.d/asplash.sh 
-sudo update-rc.d asplash.sh defaults
+ln -s /home/pi/gifbox/init.d/asplash.sh /etc/init.d/asplash.sh 
+insserv /etc/init.d/asplash.sh
 
 # link init.d script
-sudo ln -s init.d/gifbox.sh /etc/init.d/gifbox.sh
-sudo update-rc.d gifbox.sh defaults
+ln -s /home/pi/gifbox/init.d/gifbox.sh /etc/init.d/gifbox.sh
+update-rc.d gifbox.sh defaults
