@@ -118,5 +118,10 @@ if dropbox is not None:
 
 interface.shutdown()
 
+if USE_RAMFS:
+    logging.info( "shutdown ramfs")
+    args = [ "umount", CACHE_PATH ]
+    subprocess.call( args )
+
 exit(0)
 
