@@ -171,17 +171,16 @@ class FrameSource( object ):
 
 class GifPlayer( threading.Thread ):
     
-    def __init__(self):
+    def __init__( self, pth_cache=None ):
         super(GifPlayer, self).__init__()
         self._runthread = None
         self._runplayer = None
         self._clock = None
         self._frame_source = None
-        self._pth_cache = None
-
-    def init( self, pth_cache=None ):
-        self.init_pygame()
         self._pth_cache = pth_cache
+
+    def init( self ):
+        self.init_pygame()
 
     def init_pygame( self ):        
         pygame.init()

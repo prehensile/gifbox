@@ -88,7 +88,7 @@ try:
             if player is None:
                 logging.info( "init player..." )
                 if USE_GIFPLAYER:
-                    player = gifplayer.GifPlayer()
+                    player = gifplayer.GifPlayer( pth_cache=CACHE_PATH )
                     player.init()
                 else:
                     player = gifplayerosx.GifPlayerOSX()

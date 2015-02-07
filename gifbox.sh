@@ -3,8 +3,6 @@ case "$1" in
     # cd /home/pi/gifbox
     # selfupdate
     git pull
-    # activate virtualenv
-    source .venv/bin/activate
     # start main & save pid
     python gifbox.py &
     echo $! >~/.gifbox/pid
