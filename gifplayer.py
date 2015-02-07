@@ -160,7 +160,7 @@ class FrameSource( object ):
 
     def extract_frames( self, pth_gif ):
         gif_name = os.path.basename( pth_gif )
-        temp_path = tempfile.mkdtemp( self._pth_cache )
+        temp_path = tempfile.mkdtemp( dir=self._pth_cache )
         output = os.path.join( temp_path, gif_name )
         # sz = "%dx%d" % ( self._fit_rect.width, self._fit_rect.height )
         args = [ "gifsicle", "--explode", pth_gif, "--output", output ]

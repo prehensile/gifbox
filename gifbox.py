@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys
+import os, sys, subproces, shutil
 import signal
 import dropboxconnector
 import webinterface
@@ -41,10 +41,13 @@ confighandler.load_config()
 
 # init cache
 CACHE_PATH = confighandler.path_for_resource( "cache" )
-if not os.path.exists( CACHE_PATH ):
-    os.makedirs( CACHE_PATH )
+if os.path.exists( CACHE_PATH ):
+    shutil.rmtree( CACHE_PATH )
+os.makedirs( CACHE_PATH )
 if USE_RAMFS:
+    logging.debug( "Use ramfs...")
     args = [ "mount", "-t", "ramfs", "-o", "size=100m", "ramfs", CACHE_PATH ]
+    subproces.call( args )
 
 # load dropbox token
 load_token()
