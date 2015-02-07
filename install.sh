@@ -1,3 +1,6 @@
+# gifbox's cache folder
+mkdir ~/.gifbox
+
 # install dependencies
 sudo apt-get install gifsicle fbi python-pip -y
 
