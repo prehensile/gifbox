@@ -10,30 +10,41 @@ import platformutils
 import platform
 import logging
 
+IS_DARWIN = (platform.system().lower() == "darwin")
+
 DB_TOKEN = None
 def load_token( pth_token=None ):
     global DB_TOKEN
     DB_TOKEN = confighandler.load_dropboxtoken( pth_token )
 
-USE_GIFPLAYER = (platform.system().lower() != "darwin")
+USE_GIFPLAYER = not IS_DARWIN
 if USE_GIFPLAYER:
     import gifplayer
 else:
     import gifplayerosx
 
+USE_RAMFS = not IS_DARWIN
 
 def abort( message ):
     sys.stderr.write( message )
     exit(1)
 
-
 ##
 # MAIN FLOW
 # 
 
+# init logging
 platformutils.init_logging( pth_logfile=confighandler.path_for_resource("log") )
 
+# load config
 confighandler.load_config()
+
+# init cache
+CACHE_PATH = confighandler.path_for_resource( "cache" )
+if not os.path.exists( CACHE_PATH ):
+    os.makedirs( CACHE_PATH )
+if USE_RAMFS:
+    args = [ "mount", "-t", "ramfs", "-o", "size=100m", "ramfs", CACHE_PATH ]
 
 # load dropbox token
 load_token()
@@ -56,6 +67,7 @@ def signal_term_handler(signal, frame):
     global RUNNING
     logging.info( 'got SIGTERM' )
     RUNNING = False
+signal.signal( signal.SIGTERM, signal_term_handler )
 
 DISPLAY_TIME = 10.0
 try:
@@ -69,7 +81,9 @@ try:
             # token is present
             if dropbox is None:
                 logging.info( "init dropbox..." )
-                dropbox = dropboxconnector.DropboxConnector( confighandler.pth_root(), "/gifplayer/media", access_token=DB_TOKEN )
+                dropbox = dropboxconnector.DropboxConnector( pth_cache=CACHE_PATH,
+                                                                pth_media="/gifplayer/media",
+                                                                access_token=DB_TOKEN )
 
             if player is None:
                 logging.info( "init player..." )
@@ -101,5 +115,5 @@ if dropbox is not None:
 
 interface.shutdown()
 
-
+exit(0)
 

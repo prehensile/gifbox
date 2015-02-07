@@ -4,11 +4,8 @@ import random
 
 class DropboxConnector( object ):
 
-    def __init__( self, pth_root, pth_media, access_token=None ):
-        self._pth_root = pth_root
-        self._pth_cache = os.path.join( pth_root, "cache" )
-        if not os.path.exists( self._pth_cache ):
-            os.makedirs( self._pth_cache )
+    def __init__( self, pth_cache=None, pth_media=None, access_token=None ):
+        self._pth_cache = pth_cache
         self._pth_media = pth_media
         self._client = client.DropboxClient( access_token )
     

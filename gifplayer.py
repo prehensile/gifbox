@@ -10,16 +10,22 @@ import logging
 
 class GifSprite( pygame.sprite.Sprite ):
     
-    def __init__(self, pos=(0, 0), frames=None, frame_dir=None, fit_rect=None ):
+    def __init__( self, pos=(0, 0), pth_cache=None,
+                    frame_dir=None, frame_source=None, fit_rect=None ):
         super( GifSprite, self ).__init__()
         self._fit_rect = fit_rect
         self._current_frame = None
         self._glitch = False
-        self.load( frame_dir=frame_dir, fit_rect=fit_rect )
+        self.load( pth_cache=pth_cache, frame_dir=frame_dir,
+                    frame_source=None, fit_rect=fit_rect )
         self.update()
     
-    def load( self, frame_dir=None, fit_rect=None ):
-        self._frame_source = FrameSource( frame_dir, fit_rect=fit_rect )
+    def load( self, pth_cache=None, frame_dir=None, 
+                frame_source=None, fit_rect=None ):
+        if frame_source is None:
+            self._frame_source = FrameSource( frame_dir, fit_rect=fit_rect )
+        else:
+            self._frame_source = frame_source
 
         fw, fh = self._fit_rect.width, self._fit_rect.height
         lw, lh = self._frame_source.logical_size
@@ -31,7 +37,7 @@ class GifSprite( pygame.sprite.Sprite ):
             self._scale_factor = float(fh)/float(lh)
 
         self._logical_size = tuple([i*self._scale_factor for i in self._frame_source.logical_size])
-        print "logical size frame: %s\nlogical size self:%s" % ( self._frame_source.logical_size, self._logical_size  )
+        logging.debug( "logical size frame: %s\nlogical size self:%s" % ( self._frame_source.logical_size, self._logical_size  ) )
 
 
     def update(self, *args):
@@ -71,15 +77,16 @@ class Frame( object ):
 
 class FrameSource( object ):
 
-    def __init__( self, pth_gif=None, fit_rect=None ):
+    def __init__( self, pth_gif=None, pth_cache=None, fit_rect=None ):
         self._fit_rect = fit_rect
         self.logical_size = (0,0)
+        self._pth_cache = pth_cache
         if pth_gif is not None:
             self.load( pth_gif )
 
     def load( self, pth_gif ):
 
-        # get a list of frames from disk, make sure they're in order
+        # explode frames to disk, make sure they're in order
         self._frame_dir = self.extract_frames( pth_gif )
         frame_list = os.listdir( self._frame_dir )
         frame_list.sort()
@@ -113,7 +120,7 @@ class FrameSource( object ):
         m = re.search( r'logical screen ([0-9]*)x([0-9]*)', buf )
         if m is not None:
             self.logical_size = ( int(m.group(1)), int(m.group(2)) )
-            print self.logical_size
+            logging.debug( self.logical_size )
 
         # parse per-frame info
         blocks = buf.split("+")[1:]
@@ -153,11 +160,11 @@ class FrameSource( object ):
 
     def extract_frames( self, pth_gif ):
         gif_name = os.path.basename( pth_gif )
-        temp_path = tempfile.mkdtemp()
+        temp_path = tempfile.mkdtemp( self._pth_cache )
         output = os.path.join( temp_path, gif_name )
-        sz = "%dx%d" % ( self._fit_rect.width, self._fit_rect.height )
+        # sz = "%dx%d" % ( self._fit_rect.width, self._fit_rect.height )
         args = [ "gifsicle", "--explode", pth_gif, "--output", output ]
-        print args
+        logging.debug( args )
         subprocess.call( args )
         return temp_path
 
@@ -169,9 +176,12 @@ class GifPlayer( threading.Thread ):
         self._runthread = None
         self._runplayer = None
         self._clock = None
+        self._frame_source = None
+        self._pth_cache = None
 
-    def init( self ):
+    def init( self, pth_cache=None ):
         self.init_pygame()
+        self._pth_cache = pth_cache
 
     def init_pygame( self ):        
         pygame.init()
@@ -180,13 +190,13 @@ class GifPlayer( threading.Thread ):
 
     def init_simple( self ):
         # os.putenv('SDL_VIDEODRIVER', "svgalib")
-	d = pygame.display.Info()
-	logging.info( d )
+        d = pygame.display.Info()
+        # logging.info( d )
         flags = pygame.HWSURFACE | pygame.FULLSCREEN
         pygame.display.init()
         screen = pygame.display.set_mode( (d.current_w, d.current_h), flags )
-	print "screen: %s:" % screen
-	return screen
+        # logging.debug( "screen: %s:" % screen )
+        return screen
 
     def init_display( self, sz=None ):
         # Start with fbcon since directfb hangs with composite output
@@ -199,7 +209,7 @@ class GifPlayer( threading.Thread ):
                 try:
                     pygame.display.init()
                 except pygame.error:
-                    print 'Driver: {0} failed.'.format(driver)
+                    logging.debug( 'Driver: {0} failed.'.format(driver) )
                     continue
                 found = True
                 break
@@ -220,6 +230,12 @@ class GifPlayer( threading.Thread ):
     def play( self, gif_path ):
         
         self._gif_path = gif_path
+        
+        # create FrameSource outside of the main runloop
+        if self._frame_source:
+            self._frame_source.destroy()
+            self._frame_source = None
+        self._frame_source = FrameSource( gif_path, pth_cache=self._pth_cache )
        
         if self._runplayer is None:
             self._runplayer = threading.Event()
@@ -245,11 +261,11 @@ class GifPlayer( threading.Thread ):
     def run( self ):
         
         black = (0,0,0)
-	def clear_cb( surf, rect ):
+        def clear_cb( surf, rect ):
             surf.fill( black, rect)
 	
         gif_sprite = None
-	sprites = pygame.sprite.Group()
+        sprites = pygame.sprite.Group()
         clock = pygame.time.Clock()
         sr = self._screen.get_rect()
         while self._runthread.isSet():
@@ -258,29 +274,28 @@ class GifPlayer( threading.Thread ):
             if (event is not None) and (event.type == pygame.QUIT):
                 self.shutdown()
             
-	    gif_sprite = GifSprite( frame_dir=self._gif_path, fit_rect=sr )
+            gif_sprite = GifSprite( frame_source=self._frame_source, fit_rect=sr )
             gif_sprite.add( sprites )            
 
-	    self._runplayer.set()
-
-	    sprites.clear( self._screen, clear_cb )
+            sprites.clear( self._screen, clear_cb )
             self._screen.fill( black )
             pygame.display.flip()
-            
+
+            self._runplayer.set()
             while self._runplayer.isSet():
                 clock.tick(30)
                 sprites.update()
                 sprites.draw( self._screen )
                 pygame.display.flip()
 	    
-            logging.info( "exit play loop" )
+            logging.debug( "exit play loop" )
 
             sprites.empty()
             gif_sprite.kill()
             gif_sprite = None
             #pygame.display.flip()
 
-	print "end GifPlayer runloop"
+	logging.debug( "end GifPlayer runloop" )
 
 if __name__ == '__main__':
     gifplayer = GifPlayer()
