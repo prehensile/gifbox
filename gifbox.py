@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys
+import signal
 import dropboxconnector
 import webinterface
 import time
@@ -50,9 +51,15 @@ if not DB_TOKEN:
     confighandler.token_saved.connect( on_token )
 interface.start()
 
+RUNNING = True
+def signal_term_handler(signal, frame):
+    global RUNNING
+    logging.info( 'got SIGTERM' )
+    RUNNING = False
+
 DISPLAY_TIME = 10.0
 try:
-    while True:
+    while RUNNING:
 
         if DB_TOKEN is None:
             # wait for token to be saved

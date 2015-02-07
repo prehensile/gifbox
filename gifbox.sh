@@ -1,5 +1,6 @@
 case "$1" in
   start)
+    cd /home/pi/gifbox
     # selfupdate
     git pull
     # activate virtualenv
