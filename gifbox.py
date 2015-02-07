@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, subproces, shutil
+import os, sys, subprocess, shutil
 import signal
 import dropboxconnector
 import webinterface
@@ -23,7 +23,7 @@ if USE_GIFPLAYER:
 else:
     import gifplayerosx
 
-USE_RAMFS = not IS_DARWIN
+USE_RAMFS = False 
 
 def abort( message ):
     sys.stderr.write( message )
@@ -47,7 +47,7 @@ os.makedirs( CACHE_PATH )
 if USE_RAMFS:
     logging.debug( "Use ramfs...")
     args = [ "mount", "-t", "ramfs", "-o", "size=100m", "ramfs", CACHE_PATH ]
-    subproces.call( args )
+    subprocess.call( args )
 
 # load dropbox token
 load_token()

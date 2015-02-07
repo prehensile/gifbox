@@ -234,7 +234,9 @@ class GifPlayer( threading.Thread ):
         if self._frame_source:
             self._frame_source.destroy()
             self._frame_source = None
-        self._frame_source = FrameSource( gif_path, pth_cache=self._pth_cache )
+        self._frame_source = FrameSource( pth_gif=gif_path,
+                pth_cache=self._pth_cache,
+                fit_rect = self._screen.get_rect() )
        
         if self._runplayer is None:
             self._runplayer = threading.Event()
