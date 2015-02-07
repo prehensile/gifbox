@@ -17,7 +17,7 @@ class GifSprite( pygame.sprite.Sprite ):
         self._current_frame = None
         self._glitch = False
         self.load( pth_cache=pth_cache, frame_dir=frame_dir,
-                    frame_source=None, fit_rect=fit_rect )
+                    frame_source=frame_source, fit_rect=fit_rect )
         self.update()
     
     def load( self, pth_cache=None, frame_dir=None, 
@@ -75,6 +75,7 @@ class Frame( object ):
         self.index = index
         self.offset = offset
 
+
 class FrameSource( object ):
 
     def __init__( self, pth_gif=None, pth_cache=None, fit_rect=None ):
@@ -85,6 +86,8 @@ class FrameSource( object ):
             self.load( pth_gif )
 
     def load( self, pth_gif ):
+        
+        logging.info( "load: %s", pth_gif )
 
         # explode frames to disk, make sure they're in order
         self._frame_dir = self.extract_frames( pth_gif )
@@ -231,9 +234,6 @@ class GifPlayer( threading.Thread ):
         self._gif_path = gif_path
         
         # create FrameSource outside of the main runloop
-        if self._frame_source:
-            self._frame_source.destroy()
-            self._frame_source = None
         self._frame_source = FrameSource( pth_gif=gif_path,
                 pth_cache=self._pth_cache,
                 fit_rect = self._screen.get_rect() )
