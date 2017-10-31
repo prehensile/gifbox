@@ -7,23 +7,15 @@ import webinterface
 import time
 import confighandler
 import platformutils
-import platform
 import logging
+from gifplayer import GifPlayer
 
-IS_DARWIN = (platform.system().lower() == "darwin")
 
 DB_TOKEN = None
 def load_token( pth_token=None ):
     global DB_TOKEN
     DB_TOKEN = confighandler.load_dropboxtoken( pth_token )
 
-USE_GIFPLAYER = not IS_DARWIN
-if USE_GIFPLAYER:
-    import gifplayer
-else:
-    import gifplayerosx
-
-USE_RAMFS = not IS_DARWIN 
 
 def abort( message ):
     sys.stderr.write( message )
@@ -34,23 +26,32 @@ def abort( message ):
 # 
 
 # init logging
-platformutils.init_logging( pth_logfile=confighandler.path_for_resource("log") )
+platformutils.init_logging(
+    pth_logfile=confighandler.path_for_resource("log")
+)
+
 
 # load config
 confighandler.load_config()
+USE_RAMFS = not confighandler.is_darwin()
+
 
 # init cache
 CACHE_PATH = confighandler.path_for_resource( "cache" )
+
 if os.path.exists( CACHE_PATH ):
     shutil.rmtree( CACHE_PATH )
 os.makedirs( CACHE_PATH )
+
 if USE_RAMFS:
     logging.debug( "Use ramfs...")
     args = [ "mount", "-t", "ramfs", "-o", "size=100m", "ramfs", CACHE_PATH ]
     subprocess.call( args )
 
+
 # load dropbox token
 load_token()
+
 
 # main runloop
 dropbox = None
@@ -89,12 +90,7 @@ try:
                                                                 access_token=DB_TOKEN )
 
             if player is None:
-                logging.info( "init player..." )
-                if USE_GIFPLAYER:
-                    player = gifplayer.GifPlayer( pth_cache=CACHE_PATH )
-                    player.init()
-                else:
-                    player = gifplayerosx.GifPlayerOSX()
+                player = GifPlayer( cache_path=CACHE_PATH )
 
             logging.info( "get next gif..." )
             pth_gif = dropbox.get_nextfile()
