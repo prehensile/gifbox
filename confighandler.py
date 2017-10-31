@@ -1,7 +1,11 @@
 import os
+import platform
 from morris import Signal
 
 DB_TOKEN = None
+
+def is_darwin():
+    return platform.system().lower() == "darwin"
 
 def pth_root():
     root = os.path.expanduser( "~/.gifbox" )
