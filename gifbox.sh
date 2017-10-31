@@ -10,6 +10,7 @@ case "$1" in
     ;;
   stop)
     kill -TERM $(cat ~/.gifbox/pid)
+    rm ~/.gifbox/pid
     exit 0
     ;;
   *)
