@@ -3,4 +3,4 @@ dropbox==2.2.0
 Jinja2==2.7.3
 MarkupSafe==0.23
 morris==1.1
-urllib3==1.10
+urllib3==1.26.5
